@@ -1,0 +1,56 @@
+version: '3'
+services:
+    postgres:
+        image: 'postgres:latest'
+        environment: 
+            - POSTGRES_PASSWORD=postgres_password
+    redis:
+        image: 'redis:latest'
+    api:
+        depends_on: 
+            - postgres
+        build:
+            dockerfile: Dockerfile.dev
+            context: ./server
+        volumes:
+            - /app/node_modules
+# don't try to overwrite the /app/node_modules folder in the container
+            - ./server:/app
+# share everything inside ./server on local machine with /app dir in the container
+        environment: 
+            - REDIS_HOST=redis
+            - REDIS_PORT=6379
+            - PGUSER=postgres
+            - PGHOST=postgres
+            - PGDATABASE=postgres
+            - PGPASSWORD=postgres_password
+            - PGPORT=5432
+    client:
+        stdin_open: true
+        build:
+            dockerfile: Dockerfile.dev
+            context: ./client
+        volumes:
+            - /app/node_modules
+            - ./client:/app
+    worker:
+        environment: 
+            - REDIS_HOST=redis
+            - REDIS_PORT=6379
+        build:
+            dockerfile: Dockerfile.dev
+            context: ./worker
+        volumes:
+            - /app/node_modules
+            - ./worker:/app
+# There are no ports specified in this docker-compose.yml because we are using nginx for port routing.
+# This is specified in ./nginx/default.conf
+# We add nginx service:
+# We want nginx to be always up, so we add restart: always
+    nginx:
+        restart: always
+        build:
+            dockerfile: Dockerfile.dev
+            context: ./nginx
+        ports:
+            - '3050:80'
